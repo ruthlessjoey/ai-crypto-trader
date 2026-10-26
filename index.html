@@ -15,18 +15,196 @@
 <footer class="small">Local-only page. No credentials or API keys are requested.</footer>
 </main>
 <script>
-const $=id=>document.getElementById(id);
-function ema(v,p){const k=2/(p+1);let e=v.slice(0,p).reduce((a,b)=>a+b,0)/p;for(let i=p;i<v.length;i++)e=v[i]*k+e*(1-k);return e}
-function rsi(v,p=14){if(v.length<p+1)return null;let g=0,l=0;for(let i=v.length-p;i<v.length;i++){let d=v[i]-v[i-1];if(d>0)g+=d;else l-=d}if(l===0)return g===0?50:100;return 100-100/(1+g/l)}
-function analyze(){const v=$('prices').value.split(/[\s,;]+/).map(x=>x.trim()).filter(Boolean).map(Number);if(v.some(x=>!Number.isFinite(x)||x<=0)||v.length<15){$('result').innerHTML='<h2>2 · Signal result</h2><p class="wait">Enter at least 15 valid positive prices, oldest first.</p>';return}
-const s=ema(v,5),l=ema(v,13),r=rsi(v),last=v.at(-1),prev=v.at(-2),d=last-prev,m=v.at(-1)-v.at(-4);let score=0,reasons=[];
-if(s>l){score++;reasons.push('Short EMA is above long EMA.')}else if(s<l){score--;reasons.push('Short EMA is below long EMA.')}
-if(m>0){score++;reasons.push('Recent momentum is positive.')}else if(m<0){score--;reasons.push('Recent momentum is negative.')}
-if(r!==null){if(r>=50&&r<70){score++;reasons.push('RSI supports upward momentum.')}else if(r<=50&&r>30){score--;reasons.push('RSI supports downward momentum.')}else if(r>=70)reasons.push('RSI is high; chasing BUY may be risky.');else if(r<=30)reasons.push('RSI is low; chasing SELL may be risky.')}
-const t=Number($('threshold').value);let sig='WAIT',cls='wait';if(score>=Math.max(1,t+1)){sig='BUY candidate';cls='buy'}else if(score<=-Math.max(1,t+1)){sig='SELL candidate';cls='sell'}const strength=Math.round(Math.abs(score)/3*100),fmt=n=>n.toLocaleString(undefined,{maximumFractionDigits:6});
-$('result').innerHTML=`<h2>2 · Signal result</h2><div class="signal"><div class="${cls}"><strong>${sig}</strong></div><p>Rule score: <b>${score>0?'+':''}${score}/3</b> · ${v.length} prices analyzed</p><div class="grid"><div class="metric"><span class="muted">Latest price</span><b>${fmt(last)}</b></div><div class="metric"><span class="muted">Last change</span><b class="${d>=0?'buy':'sell'}">${d>0?'+':''}${fmt(d)}</b></div><div class="metric"><span class="muted">EMA 5</span><b>${fmt(s)}</b></div><div class="metric"><span class="muted">EMA 13</span><b>${fmt(l)}</b></div><div class="metric"><span class="muted">RSI 14</span><b>${r===null?'N/A':r.toFixed(1)}</b></div><div class="metric"><span class="muted">Rule agreement</span><b>${strength}%</b></div></div></div><h3>Why</h3><ul>${reasons.map(x=>'<li>'+x+'</li>').join('')}</ul><p class="warning">Rule agreement is not probability of success. ${sig==='WAIT'?'Indicators do not give a sufficiently aligned setup.':'This is a candidate, not an instruction to trade.'}</p>`;
-$('direction').value=sig.startsWith('SELL')?'SELL':'BUY'}
-$('analyze').addEventListener('click',analyze);
-$('example').addEventListener('click',()=>{$('prices').value=[6200.10,6200.12,6200.08,6200.16,6200.21,6200.18,6200.24,6200.28,6200.22,6200.31,6200.35,6200.33,6200.39,6200.42,6200.40,6200.47,6200.51,6200.48,6200.56,6200.60].join(', ');analyze()});
-$('log').addEventListener('click',()=>{const e=Number($('entry').value),x=Number($('exit').value),d=$('direction').value;if(!Number.isFinite(e)||!Number.isFinite(x)||e<=0||x<=0){$('paperResult').textContent='Enter valid entry and expiry prices.';return}const ok=d==='BUY'?x>e:x<e;if(x===e)$('paperResult').innerHTML='<b class="wait">Flat outcome</b> — check the platform tie/expiry rules.';else $('paperResult').innerHTML=ok?'<b class="buy">Direction correct</b> — one observation does not establish profitability.':'<b class="sell">Direction incorrect</b> — record it; do not increase stake to recover losses.'});
+
+const $ = id => document.getElementById(id);
+
+function ema(v, p) {
+  const k = 2 / (p + 1);
+  let e = v.slice(0, p).reduce((a, b) => a + b, 0) / p;
+  for (let i = p; i < v.length; i++) {
+    e = v[i] * k + e * (1 - k);
+  }
+  return e;
+}
+
+function rsi(v, p = 14) {
+  if (v.length < p + 1) return null;
+  let gains = 0, losses = 0;
+
+  for (let i = v.length - p; i < v.length; i++) {
+    const d = v[i] - v[i - 1];
+    if (d > 0) gains += d;
+    else losses -= d;
+  }
+
+  if (losses === 0) return gains === 0 ? 50 : 100;
+  return 100 - 100 / (1 + gains / losses);
+}
+
+function analyze() {
+  const raw = $('prices').value
+    .split(/[\s,;]+/)
+    .map(x => x.trim())
+    .filter(Boolean);
+
+  const v = raw.map(Number);
+
+  if (
+    v.length < 15 ||
+    v.some(x => !Number.isFinite(x) || x <= 0)
+  ) {
+    $('result').innerHTML =
+      '<h2>2 · Signal result</h2>' +
+      '<p class="wait">Enter at least 15 valid positive prices, oldest first.</p>';
+    return;
+  }
+
+  const shortEMA = ema(v, 5);
+  const longEMA = ema(v, 13);
+  const r = rsi(v);
+  const last = v[v.length - 1];
+  const prev = v[v.length - 2];
+  const change = last - prev;
+
+  // Compare the latest price with the price four intervals earlier.
+  // This makes a simple alternating sequence net to zero.
+  const momentum = last - v[v.length - 5];
+
+  // Require the EMAs to differ by at least 0.10% of price.
+  // This is a testable heuristic, not a proven optimal threshold.
+  const spread = (shortEMA - longEMA) / last;
+  const minSpread = 0.001;
+  const trendStrong = Math.abs(spread) >= minSpread;
+
+  let score = 0;
+  const reasons = [];
+
+  if (!trendStrong) {
+    reasons.push(
+      'EMA separation is too small; trend strength is not confirmed.'
+    );
+  } else if (shortEMA > longEMA) {
+    score++;
+    reasons.push('Short EMA is meaningfully above long EMA.');
+  } else {
+    score--;
+    reasons.push('Short EMA is meaningfully below long EMA.');
+  }
+
+  if (momentum > 0) {
+    score++;
+    reasons.push('Recent four-interval momentum is positive.');
+  } else if (momentum < 0) {
+    score--;
+    reasons.push('Recent four-interval momentum is negative.');
+  } else {
+    reasons.push('Recent momentum is neutral.');
+  }
+
+  if (r !== null) {
+    if (r > 55 && r < 70) {
+      score++;
+      reasons.push('RSI supports upward momentum.');
+    } else if (r < 45 && r > 30) {
+      score--;
+      reasons.push('RSI supports downward momentum.');
+    } else if (r >= 70) {
+      reasons.push('RSI is high; chasing BUY may be risky.');
+    } else if (r <= 30) {
+      reasons.push('RSI is low; chasing SELL may be risky.');
+    } else {
+      reasons.push('RSI is neutral; it does not confirm direction.');
+    }
+  }
+
+  const threshold = Number($('threshold').value);
+  const cutoff = Math.max(1, threshold + 1);
+
+  let signal = 'WAIT';
+  let cls = 'wait';
+
+  // A directional signal requires a meaningful EMA spread.
+  if (trendStrong && score >= cutoff) {
+    signal = 'BUY candidate';
+    cls = 'buy';
+  } else if (trendStrong && score <= -cutoff) {
+    signal = 'SELL candidate';
+    cls = 'sell';
+  }
+
+  const agreement = Math.round(Math.abs(score) / 3 * 100);
+  const fmt = n => n.toLocaleString(undefined, {
+    maximumFractionDigits: 6
+  });
+
+  $('result').innerHTML = `
+    <h2>2 · Signal result</h2>
+    <div class="signal">
+      <div class="${cls}"><strong>${signal}</strong></div>
+      <p>Rule score: <b>${score > 0 ? '+' : ''}${score}/3</b>
+      · ${v.length} prices analyzed</p>
+      <div class="grid">
+        <div class="metric"><span class="muted">Latest price</span><b>${fmt(last)}</b></div>
+        <div class="metric"><span class="muted">Last change</span><b class="${change >= 0 ? 'buy' : 'sell'}">${change > 0 ? '+' : ''}${fmt(change)}</b></div>
+        <div class="metric"><span class="muted">EMA 5</span><b>${fmt(shortEMA)}</b></div>
+        <div class="metric"><span class="muted">EMA 13</span><b>${fmt(longEMA)}</b></div>
+        <div class="metric"><span class="muted">RSI 14</span><b>${r === null ? 'N/A' : r.toFixed(1)}</b></div>
+        <div class="metric"><span class="muted">Rule score magnitude</span><b>${agreement}%</b></div>
+      </div>
+    </div>
+    <h3>Why</h3>
+    <ul>${reasons.map(x => `<li>${x}</li>`).join('')}</ul>
+    <p class="warning">
+      This is a rule-based research signal, not a probability of success.
+      ${signal === 'WAIT'
+        ? 'The setup does not meet the signal conditions.'
+        : 'A candidate is not an instruction to trade.'}
+    </p>
+  `;
+
+  $('direction').value = signal.startsWith('SELL') ? 'SELL' : 'BUY';
+}
+
+$('analyze').addEventListener('click', analyze);
+
+$('example').addEventListener('click', () => {
+  $('prices').value = [
+    6200.10, 6200.12, 6200.08, 6200.16, 6200.21,
+    6200.18, 6200.24, 6200.28, 6200.22, 6200.31,
+    6200.35, 6200.33, 6200.39, 6200.42, 6200.40,
+    6200.47, 6200.51, 6200.48, 6200.56, 6200.60
+  ].join(', ');
+  analyze();
+});
+
+$('log').addEventListener('click', () => {
+  const entry = Number($('entry').value);
+  const exit = Number($('exit').value);
+  const direction = $('direction').value;
+
+  if (
+    $('entry').value.trim() === '' ||
+    $('exit').value.trim() === '' ||
+    !Number.isFinite(entry) ||
+    !Number.isFinite(exit) ||
+    entry <= 0 ||
+    exit <= 0
+  ) {
+    $('paperResult').textContent =
+      'Enter valid entry and expiry prices.';
+    return;
+  }
+
+  if (exit === entry) {
+    $('paperResult').innerHTML =
+      '<b class="wait">Flat outcome</b> — check the platform tie/expiry rules.';
+    return;
+  }
+
+  const correct = direction === 'BUY' ? exit > entry : exit < entry;
+
+  $('paperResult').innerHTML = correct
+    ? '<b class="buy">Direction correct</b> — one observation does not establish profitability.'
+    : '<b class="sell">Direction incorrect</b> — record it; do not increase stake to recover losses.';
+});
 </script></body></html>
