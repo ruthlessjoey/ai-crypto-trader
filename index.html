@@ -15,7 +15,6 @@
 <footer class="small">Local-only page. No credentials or API keys are requested.</footer>
 </main>
 <script>
-
 const $ = id => document.getElementById(id);
 
 function ema(v, p) {
@@ -34,7 +33,7 @@ function rsi(v, p = 14) {
   for (let i = v.length - p; i < v.length; i++) {
     const d = v[i] - v[i - 1];
     if (d > 0) gains += d;
-    else losses -= d;
+    else if (d < 0) losses -= d;
   }
 
   if (losses === 0) return gains === 0 ? 50 : 100;
@@ -46,16 +45,11 @@ function analyze() {
     .split(/[\s,;]+/)
     .map(x => x.trim())
     .filter(Boolean);
-
   const v = raw.map(Number);
 
-  if (
-    v.length < 15 ||
-    v.some(x => !Number.isFinite(x) || x <= 0)
-  ) {
+  if (v.length < 15 || v.some(x => !Number.isFinite(x) || x <= 0)) {
     $('result').innerHTML =
-      '<h2>2 · Signal result</h2>' +
-      '<p class="wait">Enter at least 15 valid positive prices, oldest first.</p>';
+      '<h2>2 · Signal result</h2><p class="wait">Enter at least 15 valid positive prices, oldest first.</p>';
     return;
   }
 
@@ -65,13 +59,8 @@ function analyze() {
   const last = v[v.length - 1];
   const prev = v[v.length - 2];
   const change = last - prev;
-
-  // Compare the latest price with the price four intervals earlier.
-  // This makes a simple alternating sequence net to zero.
   const momentum = last - v[v.length - 5];
 
-  // Require the EMAs to differ by at least 0.10% of price.
-  // This is a testable heuristic, not a proven optimal threshold.
   const spread = (shortEMA - longEMA) / last;
   const minSpread = 0.001;
   const trendStrong = Math.abs(spread) >= minSpread;
@@ -80,9 +69,7 @@ function analyze() {
   const reasons = [];
 
   if (!trendStrong) {
-    reasons.push(
-      'EMA separation is too small; trend strength is not confirmed.'
-    );
+    reasons.push('EMA separation is too small; trend strength is not confirmed.');
   } else if (shortEMA > longEMA) {
     score++;
     reasons.push('Short EMA is meaningfully above long EMA.');
@@ -118,12 +105,11 @@ function analyze() {
   }
 
   const threshold = Number($('threshold').value);
-  const cutoff = Math.max(1, threshold + 1);
+  const cutoff = threshold === 2 ? 2 : threshold === 1 ? 2 : 1;
 
   let signal = 'WAIT';
   let cls = 'wait';
 
-  // A directional signal requires a meaningful EMA spread.
   if (trendStrong && score >= cutoff) {
     signal = 'BUY candidate';
     cls = 'buy';
@@ -133,33 +119,25 @@ function analyze() {
   }
 
   const agreement = Math.round(Math.abs(score) / 3 * 100);
-  const fmt = n => n.toLocaleString(undefined, {
-    maximumFractionDigits: 6
-  });
+  const fmt = n => n.toLocaleString(undefined, { maximumFractionDigits: 6 });
 
   $('result').innerHTML = `
     <h2>2 · Signal result</h2>
     <div class="signal">
       <div class="${cls}"><strong>${signal}</strong></div>
-      <p>Rule score: <b>${score > 0 ? '+' : ''}${score}/3</b>
-      · ${v.length} prices analyzed</p>
+      <p>Rule score: <b>${score > 0 ? '+' : ''}${score}/3</b> · ${v.length} prices analyzed</p>
       <div class="grid">
         <div class="metric"><span class="muted">Latest price</span><b>${fmt(last)}</b></div>
         <div class="metric"><span class="muted">Last change</span><b class="${change >= 0 ? 'buy' : 'sell'}">${change > 0 ? '+' : ''}${fmt(change)}</b></div>
         <div class="metric"><span class="muted">EMA 5</span><b>${fmt(shortEMA)}</b></div>
         <div class="metric"><span class="muted">EMA 13</span><b>${fmt(longEMA)}</b></div>
         <div class="metric"><span class="muted">RSI 14</span><b>${r === null ? 'N/A' : r.toFixed(1)}</b></div>
-        <div class="metric"><span class="muted">Rule score magnitude</span><b>${agreement}%</b></div>
+        <div class="metric"><span class="muted">Rule agreement</span><b>${agreement}%</b></div>
       </div>
     </div>
     <h3>Why</h3>
     <ul>${reasons.map(x => `<li>${x}</li>`).join('')}</ul>
-    <p class="warning">
-      This is a rule-based research signal, not a probability of success.
-      ${signal === 'WAIT'
-        ? 'The setup does not meet the signal conditions.'
-        : 'A candidate is not an instruction to trade.'}
-    </p>
+    <p class="warning">Rule agreement is not probability of success. This is a candidate, not an instruction to trade.</p>
   `;
 
   $('direction').value = signal.startsWith('SELL') ? 'SELL' : 'BUY';
@@ -178,20 +156,18 @@ $('example').addEventListener('click', () => {
 });
 
 $('log').addEventListener('click', () => {
-  const entry = Number($('entry').value);
-  const exit = Number($('exit').value);
+  const entryText = $('entry').value.trim();
+  const exitText = $('exit').value.trim();
+  const entry = Number(entryText);
+  const exit = Number(exitText);
   const direction = $('direction').value;
 
   if (
-    $('entry').value.trim() === '' ||
-    $('exit').value.trim() === '' ||
-    !Number.isFinite(entry) ||
-    !Number.isFinite(exit) ||
-    entry <= 0 ||
-    exit <= 0
+    !entryText || !exitText ||
+    !Number.isFinite(entry) || !Number.isFinite(exit) ||
+    entry <= 0 || exit <= 0
   ) {
-    $('paperResult').textContent =
-      'Enter valid entry and expiry prices.';
+    $('paperResult').textContent = 'Enter valid entry and expiry prices.';
     return;
   }
 
