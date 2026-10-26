@@ -1,57 +1,141 @@
+
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#111"><title>Flex Signal Lab</title>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111">
+<title>Flex Signal Lab · Live BTC</title>
 <style>
-:root{color-scheme:dark;--bg:#101112;--panel:#1b1d1f;--line:#303337;--muted:#a4a9ae;--green:#25c477;--red:#ff5364;--yellow:#ffd166}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#f4f6f7;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}main{max-width:760px;margin:auto;padding:18px 15px 36px}header{padding:8px 0 18px}h1{font-size:27px;margin:0 0 7px}p{line-height:1.45}.muted{color:var(--muted);font-size:13px}.card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:16px;margin:12px 0}label{display:block;font-weight:650;margin:12px 0 7px}input,textarea,select{width:100%;background:#101112;color:#f4f6f7;border:1px solid #42464b;border-radius:11px;padding:13px;font:inherit}textarea{min-height:100px;resize:vertical}button{border:0;border-radius:12px;padding:14px 16px;font-weight:750;font-size:16px;width:100%;background:#e9edf0;color:#111;margin-top:13px}button.secondary{background:#303438;color:white}.signal{border-radius:15px;padding:17px;margin-top:12px;background:#26292c;border:1px solid var(--line)}.signal strong{font-size:30px;letter-spacing:.4px}.buy{color:var(--green)}.sell{color:var(--red)}.wait{color:var(--yellow)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.metric{background:#111314;border-radius:12px;padding:12px}.metric b{display:block;font-size:20px;margin-top:5px}ul{padding-left:20px;line-height:1.55}.warning{border-left:4px solid var(--yellow);padding:10px 12px;background:#29271f;border-radius:8px;font-size:13px;line-height:1.5}.small{font-size:12px;color:var(--muted)}
-</style></head><body><main>
-<header><div class="muted">PERSONAL RESEARCH TOOL · MANUAL ONLY</div><h1>Flex Signal Lab</h1><p class="muted">For your Olymptrade Flex chart. Enter recent observed prices to get a transparent technical signal. This app never logs in, connects to Olymptrade, or places orders.</p></header>
-<div class="warning"><b>Important:</b> This is a rule-based prototype, not a trained AI model or a reliable predictor. Five-second trades are extremely noisy. A signal can be wrong, and a high displayed score is not a probability of profit. Use demo/paper tracking only while validating it.</div>
-<section class="card"><h2>1 · Enter recent prices</h2><p class="muted">Copy recent price values from the chart, oldest first and newest last, separated by commas. Use at least 15 values; 30–60 is better. Do not enter a future price.</p>
-<label for="prices">Recent prices</label><textarea id="prices" placeholder="6200.10, 6200.12, 6200.08, 6200.16, 6200.21, ..."></textarea>
-<div class="grid"><div><label for="seconds">Chart interval (seconds)</label><select id="seconds"><option>5</option><option>10</option><option>15</option><option>30</option><option>60</option><option>120</option><option>300</option><option>Other</option></select></div><div><label for="threshold">Signal threshold</label><select id="threshold"><option value="2">Strict (2+ points)</option><option value="1" selected>Balanced (1+ point)</option><option value="0">Loose (0+ points)</option></select></div></div>
-<button id="analyze">Analyze prices</button><button class="secondary" id="example">Load example data</button></section>
-<section class="card" id="result" aria-live="polite"><h2>2 · Signal result</h2><p class="muted">Your result appears here after analysis.</p></section>
-<section class="card"><h2>3 · What the signal means</h2><ul><li><b class="buy">BUY candidate:</b> short EMA is above long EMA and recent momentum/RSI filters agree.</li><li><b class="sell">SELL candidate:</b> short EMA is below long EMA and momentum/RSI filters agree.</li><li><b class="wait">WAIT:</b> signals conflict, data is insufficient, or the setup is too weak.</li></ul><p class="muted">The score is a transparent rule score, not a machine-learning probability. This prototype uses price-only indicators because it has no verified feed for the specific Asia Composite Index.</p></section>
-<section class="card"><h2>4 · Paper-trade log</h2><p class="muted">Record what happened after a signal. This helps evaluate the strategy before risking money.</p><div class="grid"><div><label for="entry">Observed entry price</label><input id="entry" inputmode="decimal" placeholder="e.g. 6200.40"></div><div><label for="exit">Observed price after expiry</label><input id="exit" inputmode="decimal" placeholder="e.g. 6200.35"></div></div><label for="direction">Signal direction</label><select id="direction"><option value="BUY">BUY</option><option value="SELL">SELL</option></select><button id="log">Calculate paper result</button><div id="paperResult" class="muted" style="margin-top:12px"></div><p class="small">This measures direction only; it doesn't calculate platform payout, fees, or actual profitability.</p></section>
-<footer class="small">Local-only page. No credentials or API keys are requested.</footer>
+:root{color-scheme:dark;--bg:#101112;--panel:#1b1d1f;--line:#303337;--muted:#a4a9ae;--green:#25c477;--red:#ff5364;--yellow:#ffd166}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:#f4f6f7;font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:760px;margin:auto;padding:18px 15px 36px}
+header{padding:8px 0 18px}
+h1{font-size:27px;margin:0 0 7px}
+p{line-height:1.45}
+.muted{color:var(--muted);font-size:13px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:17px;padding:16px;margin:12px 0}
+label{display:block;font-weight:650;margin:12px 0 7px}
+input,textarea,select{width:100%;background:#101112;color:#f4f6f7;border:1px solid #42464b;border-radius:11px;padding:13px;font:inherit}
+textarea{min-height:100px;resize:vertical}
+button{border:0;border-radius:12px;padding:14px 16px;font-weight:750;font-size:16px;width:100%;background:#e9edf0;color:#111;margin-top:13px}
+button.secondary{background:#303438;color:white}
+.signal{border-radius:15px;padding:17px;margin-top:12px;background:#26292c;border:1px solid var(--line)}
+.signal strong{font-size:30px;letter-spacing:.4px}
+.buy{color:var(--green)}.sell{color:var(--red)}.wait{color:var(--yellow)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.metric{background:#111314;border-radius:12px;padding:12px}
+.metric b{display:block;font-size:20px;margin-top:5px}
+ul{padding-left:20px;line-height:1.55}
+.warning{border-left:4px solid var(--yellow);padding:10px 12px;background:#29271f;border-radius:8px;font-size:13px;line-height:1.5}
+.small{font-size:12px;color:var(--muted)}
+.statusdot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--yellow);margin-right:7px}
+</style>
+</head>
+<body>
+<main>
+<header>
+<div class="muted">PERSONAL RESEARCH TOOL · MANUAL ONLY</div>
+<h1>Flex Signal Lab</h1>
+<p class="muted">Live BTC/USDT spot market research plus a manual price analyzer. This app never logs in to a broker or places orders.</p>
+</header>
+
+<div class="warning"><b>Important:</b> Experimental rule-based signals, not a trained AI model or reliable predictor. Signals can be wrong; scores are not probabilities of profit. Use paper tracking only. BTC/USDT is not Olymptrade ASIA_X.</div>
+
+<section class="card" id="liveCard">
+<h2>Live market · BTC/USDT</h2>
+<p class="muted">Source: Binance public spot trade stream · custom 30-second candles</p>
+<p id="feedStatus" class="wait" aria-live="polite"><span class="statusdot"></span>CONNECTING — waiting for live data…</p>
+<div class="signal">
+<span class="muted">Latest BTC/USDT price</span>
+<strong id="livePrice">—</strong>
+<p class="muted" id="lastUpdate">No prices received yet</p>
+</div>
+<div class="grid">
+<div class="metric"><span class="muted">Current 30-second candle</span><b id="candleStatus">Waiting</b></div>
+<div class="metric"><span class="muted">Completed candles</span><b id="candleCount">0</b></div>
+</div>
+<div class="signal">
+<span class="muted">Experimental live rule signal</span>
+<p id="liveSignal" class="wait"><strong>WAIT</strong></p>
+<p id="liveReason" class="muted">Waiting for 15 completed candles and a fresh feed.</p>
+</div>
+<p class="warning">Live candidates are paused if the feed becomes stale. No trades are placed.</p>
+</section>
+
+<section class="card">
+<h2>1 · Enter recent prices manually</h2>
+<p class="muted">Enter observed prices oldest first, separated by commas. Use at least 15 positive prices. This manual analyzer is separate from the live BTC feed.</p>
+<label for="prices">Recent prices</label>
+<textarea id="prices" placeholder="6200.10, 6200.12, 6200.08, 6200.16, ..."></textarea>
+<div class="grid">
+<div><label for="seconds">Chart interval (seconds)</label>
+<select id="seconds"><option>5</option><option>10</option><option>15</option><option selected>30</option><option>60</option><option>120</option><option>300</option><option>Other</option></select></div>
+<div><label for="threshold">Signal threshold</label>
+<select id="threshold"><option value="2">Strict (2+ points)</option><option value="1" selected>Balanced (2+ points)</option><option value="0">Loose (1+ point)</option></select></div>
+</div>
+<button id="analyze">Analyze manual prices</button>
+<button class="secondary" id="example">Load example data</button>
+</section>
+
+<section class="card" id="result" aria-live="polite">
+<h2>2 · Manual signal result</h2>
+<p class="muted">Your result appears here after analysis.</p>
+</section>
+
+<section class="card">
+<h2>3 · What the signal means</h2>
+<ul>
+<li><b class="buy">BUY candidate:</b> short EMA is above long EMA and the rule filters agree.</li>
+<li><b class="sell">SELL candidate:</b> short EMA is below long EMA and the rule filters agree.</li>
+<li><b class="wait">WAIT:</b> data is insufficient, signals conflict, or the setup is weak.</li>
+</ul>
+<p class="muted">The score is a transparent rule score, not a machine-learning probability. Public BTC data cannot stand in for the price of another instrument.</p>
+</section>
+
+<section class="card">
+<h2>4 · Paper-trade log</h2>
+<p class="muted">Record entry and expiry prices for a simulated observation. This measures direction only.</p>
+<div class="grid">
+<div><label for="entry">Observed entry price</label><input id="entry" inputmode="decimal" placeholder="e.g. 6200.40"></div>
+<div><label for="exit">Observed price after expiry</label><input id="exit" inputmode="decimal" placeholder="e.g. 6200.35"></div>
+</div>
+<label for="direction">Signal direction</label>
+<select id="direction"><option value="BUY">BUY</option><option value="SELL">SELL</option></select>
+<button id="log">Calculate paper result</button>
+<div id="paperResult" class="muted" style="margin-top:12px"></div>
+<p class="small">Does not calculate platform payout, fees, spreads, or actual profitability.</p>
+</section>
+
+<footer class="small">Public Binance market data only. No credentials, API keys, or orders.</footer>
 </main>
+
 <script>
 const $ = id => document.getElementById(id);
 
 function ema(v, p) {
+  if (v.length < p) return null;
   const k = 2 / (p + 1);
   let e = v.slice(0, p).reduce((a, b) => a + b, 0) / p;
-  for (let i = p; i < v.length; i++) {
-    e = v[i] * k + e * (1 - k);
-  }
+  for (let i = p; i < v.length; i++) e = v[i] * k + e * (1 - k);
   return e;
 }
 
 function rsi(v, p = 14) {
   if (v.length < p + 1) return null;
   let gains = 0, losses = 0;
-
   for (let i = v.length - p; i < v.length; i++) {
     const d = v[i] - v[i - 1];
     if (d > 0) gains += d;
     else if (d < 0) losses -= d;
   }
-
   if (losses === 0) return gains === 0 ? 50 : 100;
   return 100 - 100 / (1 + gains / losses);
 }
 
-function analyze() {
-  const raw = $('prices').value
-    .split(/[\s,;]+/)
-    .map(x => x.trim())
-    .filter(Boolean);
-  const v = raw.map(Number);
-
-  if (v.length < 15 || v.some(x => !Number.isFinite(x) || x <= 0)) {
-    $('result').innerHTML =
-      '<h2>2 · Signal result</h2><p class="wait">Enter at least 15 valid positive prices, oldest first.</p>';
-    return;
-  }
+function scorePrices(v, thresholdValue) {
+  if (v.length < 15 || v.some(x => !Number.isFinite(x) || x <= 0)) return null;
 
   const shortEMA = ema(v, 5);
   const longEMA = ema(v, 13);
@@ -60,10 +144,8 @@ function analyze() {
   const prev = v[v.length - 2];
   const change = last - prev;
   const momentum = last - v[v.length - 5];
-
   const spread = (shortEMA - longEMA) / last;
-  const minSpread = 0.001;
-  const trendStrong = Math.abs(spread) >= minSpread;
+  const trendStrong = Math.abs(spread) >= 0.0001;
 
   let score = 0;
   const reasons = [];
@@ -72,10 +154,10 @@ function analyze() {
     reasons.push('EMA separation is too small; trend strength is not confirmed.');
   } else if (shortEMA > longEMA) {
     score++;
-    reasons.push('Short EMA is meaningfully above long EMA.');
+    reasons.push('Short EMA is above long EMA.');
   } else {
     score--;
-    reasons.push('Short EMA is meaningfully below long EMA.');
+    reasons.push('Short EMA is below long EMA.');
   }
 
   if (momentum > 0) {
@@ -104,11 +186,8 @@ function analyze() {
     }
   }
 
-  const threshold = Number($('threshold').value);
-  const cutoff = threshold === 2 ? 2 : threshold === 1 ? 2 : 1;
-
-  let signal = 'WAIT';
-  let cls = 'wait';
+  const cutoff = Number(thresholdValue) === 0 ? 1 : 2;
+  let signal = 'WAIT', cls = 'wait';
 
   if (trendStrong && score >= cutoff) {
     signal = 'BUY candidate';
@@ -118,69 +197,264 @@ function analyze() {
     cls = 'sell';
   }
 
-  const agreement = Math.round(Math.abs(score) / 3 * 100);
-  const fmt = n => n.toLocaleString(undefined, { maximumFractionDigits: 6 });
+  return {shortEMA,longEMA,r,last,prev,change,momentum,spread,trendStrong,score,reasons,signal,cls};
+}
+
+function analyze() {
+  const raw = $('prices').value.split(/[\s,;]+/).map(x => x.trim()).filter(Boolean);
+  const v = raw.map(Number);
+
+  if (v.length < 15 || v.some(x => !Number.isFinite(x) || x <= 0)) {
+    $('result').innerHTML = '<h2>2 · Manual signal result</h2><p class="wait">Enter at least 15 valid positive prices, oldest first.</p>';
+    return;
+  }
+
+  const a = scorePrices(v, $('threshold').value);
+  const fmt = n => n.toLocaleString(undefined,{maximumFractionDigits:6});
+  const agreement = Math.round(Math.abs(a.score) / 3 * 100);
 
   $('result').innerHTML = `
-    <h2>2 · Signal result</h2>
+    <h2>2 · Manual signal result</h2>
     <div class="signal">
-      <div class="${cls}"><strong>${signal}</strong></div>
-      <p>Rule score: <b>${score > 0 ? '+' : ''}${score}/3</b> · ${v.length} prices analyzed</p>
+      <div class="${a.cls}"><strong>${a.signal}</strong></div>
+      <p>Rule score: <b>${a.score > 0 ? '+' : ''}${a.score}/3</b> · ${v.length} prices analyzed</p>
       <div class="grid">
-        <div class="metric"><span class="muted">Latest price</span><b>${fmt(last)}</b></div>
-        <div class="metric"><span class="muted">Last change</span><b class="${change >= 0 ? 'buy' : 'sell'}">${change > 0 ? '+' : ''}${fmt(change)}</b></div>
-        <div class="metric"><span class="muted">EMA 5</span><b>${fmt(shortEMA)}</b></div>
-        <div class="metric"><span class="muted">EMA 13</span><b>${fmt(longEMA)}</b></div>
-        <div class="metric"><span class="muted">RSI 14</span><b>${r === null ? 'N/A' : r.toFixed(1)}</b></div>
+        <div class="metric"><span class="muted">Latest price</span><b>${fmt(a.last)}</b></div>
+        <div class="metric"><span class="muted">Last change</span><b class="${a.change >= 0 ? 'buy' : 'sell'}">${a.change > 0 ? '+' : ''}${fmt(a.change)}</b></div>
+        <div class="metric"><span class="muted">EMA 5</span><b>${fmt(a.shortEMA)}</b></div>
+        <div class="metric"><span class="muted">EMA 13</span><b>${fmt(a.longEMA)}</b></div>
+        <div class="metric"><span class="muted">RSI 14</span><b>${a.r === null ? 'N/A' : a.r.toFixed(1)}</b></div>
         <div class="metric"><span class="muted">Rule agreement</span><b>${agreement}%</b></div>
       </div>
     </div>
     <h3>Why</h3>
-    <ul>${reasons.map(x => `<li>${x}</li>`).join('')}</ul>
-    <p class="warning">Rule agreement is not probability of success. This is a candidate, not an instruction to trade.</p>
+    <ul>${a.reasons.map(x => `<li>${x}</li>`).join('')}</ul>
+    <p class="warning">Rule agreement is not probability of success. Research candidate only, not a trade instruction.</p>
   `;
-
-  $('direction').value = signal.startsWith('SELL') ? 'SELL' : 'BUY';
+  $('direction').value = a.signal.startsWith('SELL') ? 'SELL' : 'BUY';
 }
 
 $('analyze').addEventListener('click', analyze);
 
 $('example').addEventListener('click', () => {
   $('prices').value = [
-    6200.10, 6200.12, 6200.08, 6200.16, 6200.21,
-    6200.18, 6200.24, 6200.28, 6200.22, 6200.31,
-    6200.35, 6200.33, 6200.39, 6200.42, 6200.40,
-    6200.47, 6200.51, 6200.48, 6200.56, 6200.60
+    6200.10,6200.12,6200.08,6200.16,6200.21,
+    6200.18,6200.24,6200.28,6200.22,6200.31,
+    6200.35,6200.33,6200.39,6200.42,6200.40,
+    6200.47,6200.51,6200.48,6200.56,6200.60
   ].join(', ');
   analyze();
 });
 
 $('log').addEventListener('click', () => {
-  const entryText = $('entry').value.trim();
-  const exitText = $('exit').value.trim();
-  const entry = Number(entryText);
-  const exit = Number(exitText);
+  const et = $('entry').value.trim();
+  const xt = $('exit').value.trim();
+  const entry = Number(et);
+  const exit = Number(xt);
   const direction = $('direction').value;
 
-  if (
-    !entryText || !exitText ||
-    !Number.isFinite(entry) || !Number.isFinite(exit) ||
-    entry <= 0 || exit <= 0
-  ) {
+  if (!et || !xt || !Number.isFinite(entry) || !Number.isFinite(exit) || entry <= 0 || exit <= 0) {
     $('paperResult').textContent = 'Enter valid entry and expiry prices.';
     return;
   }
 
   if (exit === entry) {
-    $('paperResult').innerHTML =
-      '<b class="wait">Flat outcome</b> — check the platform tie/expiry rules.';
+    $('paperResult').innerHTML = '<b class="wait">Flat outcome</b> — check the platform tie/expiry rules.';
     return;
   }
 
   const correct = direction === 'BUY' ? exit > entry : exit < entry;
-
   $('paperResult').innerHTML = correct
     ? '<b class="buy">Direction correct</b> — one observation does not establish profitability.'
     : '<b class="sell">Direction incorrect</b> — record it; do not increase stake to recover losses.';
 });
-</script></body></html>
+
+/* LIVE BTC/USDT PUBLIC MARKET FEED — DISPLAY AND RESEARCH ONLY */
+(() => {
+  const endpoint = 'wss://data-stream.binance.vision/ws/btcusdt@trade';
+  const closes = [];
+  let socket = null;
+  let reconnectTimer = null;
+  let staleTimer = null;
+  let lastMessageAt = 0;
+  let currentCandle = null;
+  let reconnectDelay = 3000;
+  let stopped = false;
+
+  const money = n => n.toLocaleString('en-US',{
+    minimumFractionDigits:2,
+    maximumFractionDigits:2
+  });
+
+  const timeText = t => new Date(t).toLocaleTimeString([],{
+    hour:'2-digit',minute:'2-digit',second:'2-digit'
+  });
+
+  function status(message, cls) {
+    $('feedStatus').className = cls;
+    $('feedStatus').innerHTML = '<span class="statusdot"></span>' + message;
+  }
+
+  function setWait(message) {
+    $('liveSignal').className = 'wait';
+    $('liveSignal').innerHTML = '<strong>WAIT</strong>';
+    $('liveReason').textContent = message;
+  }
+
+  function updateCandleDisplay() {
+    if (!currentCandle) {
+      $('candleStatus').textContent = 'Waiting';
+      return;
+    }
+    const elapsed = Math.floor((Date.now() - currentCandle.start) / 1000);
+    const remaining = Math.max(0, 30 - elapsed);
+    $('candleStatus').textContent = 'Building · ' + remaining + 's left';
+  }
+
+  function evaluateLive() {
+    $('candleCount').textContent = String(closes.length);
+
+    if (!lastMessageAt || Date.now() - lastMessageAt > 15000) {
+      setWait('Feed is stale; live candidates are paused until updates resume.');
+      return;
+    }
+
+    if (closes.length < 15) {
+      setWait('Collecting completed 30-second candles: ' + closes.length + '/15. Keep the page open.');
+      return;
+    }
+
+    const a = scorePrices(closes.slice(-100), $('threshold').value);
+    if (!a) {
+      setWait('Not enough valid completed candles yet.');
+      return;
+    }
+
+    $('liveSignal').className = a.cls;
+    $('liveSignal').innerHTML = '<strong>' + a.signal + '</strong>';
+    $('liveReason').textContent =
+      'Rule score ' + (a.score > 0 ? '+' : '') + a.score + '/3 · EMA spread ' +
+      (a.spread * 100).toFixed(4) +
+      '% · completed 30-second candle closes. Not a probability of success.';
+  }
+
+  function handleTrade(data) {
+    const price = Number(data.p);
+    const timestamp = Number(data.T || data.E);
+    if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(timestamp)) return;
+
+    lastMessageAt = Date.now();
+    reconnectDelay = 3000;
+    $('livePrice').textContent = '$' + money(price);
+    $('lastUpdate').textContent = 'Last trade update: ' + timeText(timestamp);
+    status('CONNECTED · live trade updates received', 'buy');
+
+    const bucket = Math.floor(timestamp / 30000) * 30000;
+
+    if (!currentCandle) {
+      currentCandle = {start:bucket,open:price,high:price,low:price,close:price};
+    } else if (bucket > currentCandle.start) {
+      closes.push(currentCandle.close);
+      if (closes.length > 200) closes.shift();
+
+      currentCandle = {start:bucket,open:price,high:price,low:price,close:price};
+      evaluateLive();
+    } else if (bucket === currentCandle.start) {
+      currentCandle.high = Math.max(currentCandle.high, price);
+      currentCandle.low = Math.min(currentCandle.low, price);
+      currentCandle.close = price;
+    }
+    updateCandleDisplay();
+    if (closes.length < 15) evaluateLive();
+  }
+
+  function scheduleReconnect() {
+    if (stopped || reconnectTimer) return;
+    status('DISCONNECTED · reconnecting soon', 'wait');
+    setWait('Connection interrupted. Waiting to reconnect.');
+
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      connect();
+    }, reconnectDelay);
+
+    reconnectDelay = Math.min(reconnectDelay * 2, 30000);
+  }
+
+  function connect() {
+    if (stopped) return;
+
+    try {
+      status('CONNECTING · opening public market feed…', 'wait');
+      socket = new WebSocket(endpoint);
+
+      socket.onopen = () => {
+        status('CONNECTED · waiting for first trade…', 'buy');
+        lastMessageAt = 0;
+      };
+
+      socket.onmessage = event => {
+        try {
+          handleTrade(JSON.parse(event.data));
+        } catch (err) {
+          /* Ignore malformed messages. */
+        }
+      };
+
+      socket.onerror = () => {
+        status('CONNECTION ERROR · checking feed access', 'wait');
+        try { socket.close(); } catch (err) {}
+      };
+
+      socket.onclose = () => scheduleReconnect();
+    } catch (err) {
+      scheduleReconnect();
+    }
+  }
+
+  staleTimer = setInterval(() => {
+    updateCandleDisplay();
+
+    if (lastMessageAt && Date.now() - lastMessageAt > 15000) {
+      status('STALE · no trade update for 15+ seconds', 'wait');
+      setWait('No recent trade updates. Candidates are paused until fresh data returns.');
+    }
+  }, 3000);
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && (!socket || socket.readyState === WebSocket.CLOSED)) {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      connect();
+    }
+  });
+
+  window.addEventListener('online', () => {
+    if (!socket || socket.readyState === WebSocket.CLOSED) {
+      if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      connect();
+    }
+  });
+
+  window.addEventListener('offline', () => {
+    status('OFFLINE · check your internet connection', 'wait');
+    setWait('Device is offline. Waiting for internet access.');
+  });
+
+  window.addEventListener('pagehide', () => {
+    stopped = true;
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    if (staleTimer) clearInterval(staleTimer);
+    if (socket && socket.readyState <= WebSocket.OPEN) socket.close();
+  });
+
+  connect();
+})();
+</script>
+</body>
+</html>
